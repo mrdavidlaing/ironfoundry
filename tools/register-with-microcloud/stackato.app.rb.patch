@@ -1,0 +1,14 @@
+--- stackato/vcap/cloud_controller/app/models/app.rb	2012-04-26 17:52:50.041706205 -0700
++++ stackato/vcap/cloud_controller/app/models/app_if.rb	2012-05-10 09:08:58.048321688 -0700
+@@ -31,9 +31,9 @@
+   AppStates = %w[STOPPED STARTED]
+   PackageStates = %w[PENDING STAGED FAILED]
+ 
+-  Runtimes = %w[ruby18 ruby19 java node php python27 python32 perl514]
++  Runtimes = %w[ruby18 ruby19 java node php python27 python32 perl514 aspdotnet40]
+   Frameworks = %w[sinatra rack rails3 java_web spring grails node php otp_rebar lift
+-                  python perl generic buildpack unknown]
++                  python perl generic buildpack unknown aspdotnet]
+ 
+   validates_presence_of :name, :framework, :runtime
+ 
