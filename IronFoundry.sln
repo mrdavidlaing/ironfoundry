@@ -1,6 +1,6 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2010
+# Visual Studio 2012
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{612435DA-4BBF-49B5-B0AA-36E6529C1D8B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{9E04D2BE-86B8-47B9-809D-84506CFDF42D}"
@@ -37,7 +37,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{443DDB
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{EE6F9E81-B251-47D5-B847-D0EA8957414C}"
 	ProjectSection(SolutionItems) = preProject
+		tools\dea-monitor.rb = tools\dea-monitor.rb
 		tools\iis_cleanup.ps1 = tools\iis_cleanup.ps1
+		tools\stop-apps.rb = tools\stop-apps.rb
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IronFoundry", "src\IronFoundry\IronFoundry.csproj", "{506CCDF4-11FE-4138-8061-25495EEBF8E0}"
@@ -67,6 +69,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "docs", "docs", "{57E16EC4-F
 		DEV_SETUP.md = DEV_SETUP.md
 		LICENSE.txt = LICENSE.txt
 		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "register-with-microcloud", "register-with-microcloud", "{31BD05C1-61E6-4878-A38F-3171280A2C8F}"
+	ProjectSection(SolutionItems) = preProject
+		tools\register-with-microcloud\microcf.app.rb.patch = tools\register-with-microcloud\microcf.app.rb.patch
+		tools\register-with-microcloud\microcf_patch.rb = tools\register-with-microcloud\microcf_patch.rb
+		tools\register-with-microcloud\setup.rb = tools\register-with-microcloud\setup.rb
+		tools\register-with-microcloud\stackato.app.rb.patch = tools\register-with-microcloud\stackato.app.rb.patch
+		tools\register-with-microcloud\stackato_patch.rb = tools\register-with-microcloud\stackato_patch.rb
 	EndProjectSection
 EndProject
 Global
@@ -155,5 +166,6 @@ Global
 		{8FA37E43-3BAD-4287-B873-253A2A1AF227} = {612435DA-4BBF-49B5-B0AA-36E6529C1D8B}
 		{8393BB9D-7606-46AA-A399-8008F686CB7D} = {612435DA-4BBF-49B5-B0AA-36E6529C1D8B}
 		{34013CB7-3FF3-4061-9E45-CB6101F5977A} = {9E04D2BE-86B8-47B9-809D-84506CFDF42D}
+		{31BD05C1-61E6-4878-A38F-3171280A2C8F} = {EE6F9E81-B251-47D5-B847-D0EA8957414C}
 	EndGlobalSection
 EndGlobal
