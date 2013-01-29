@@ -1,7 +1,6 @@
 ﻿namespace IronFoundry.Dea
 {
     using System;
-    using System.Collections.Generic;
     using System.Linq;
     using System.Net;
 
@@ -17,13 +16,8 @@
         private const string localhostStr = "127.0.0.1";
 
         private const string aspDotNetFramework = "aspdotnet";
-        private static readonly IDictionary<string, ushort> runtimeMap = new Dictionary<string, ushort>
-        {
-            { "aspdotnet40", 4 },
-            { "clr20", 2 },
-            { "clr40", 4 },
-        };
-        private static readonly string[] supportedFrameworks = new[] { aspDotNetFramework };
+        private static readonly string[] supportedRuntimes = new[] { "aspdotnet40", "clr20", "clr40" };
+        private static readonly string[] supportedFrameworks = new[] { aspDotNetFramework, "standalone" };
 
         static Constants()
         {
@@ -32,7 +26,7 @@
 
         public static bool IsSupportedRuntime(string runtime)
         {
-            return (! String.IsNullOrWhiteSpace(runtime)) && runtimeMap.ContainsKey(runtime);
+            return (! String.IsNullOrWhiteSpace(runtime)) && supportedRuntimes.Contains(runtime);
         }
 
         public static bool IsSupportedFramework(string framework)
@@ -42,19 +36,12 @@
 
         public static string[] SupportedRuntimes
         {
-            get { return runtimeMap.Keys.ToArray(); }
+            get { return supportedRuntimes; }
         }
 
         public static bool IsAspNet(string framework)
         {
             return aspDotNetFramework == framework;
-        }
-
-        public static ushort GetManagedRuntimeVersion(string runtime)
-        {
-            ushort rv = 0;
-            runtimeMap.TryGetValue(runtime, out rv);
-            return rv;
         }
     }
 }

@@ -249,6 +249,7 @@
             if (VcapStates.IsValid(argNewState))
             {
                 State = argNewState;
+                StateTimestamp = Utility.GetEpochTimestamp();
             }
             else
             {
@@ -297,6 +298,13 @@
                 }
                 return rv;
             }
+        }
+
+        // TODO: should be represented by AspNetInstance class
+        [JsonIgnore]
+        public bool IsAspNet
+        {
+            get { return Constants.IsAspNet(Framework); }
         }
 
         public void CalculateUsage()

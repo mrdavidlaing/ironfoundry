@@ -26,6 +26,7 @@
         private readonly IConfigManager configManager;
         private readonly IDropletManager dropletManager;
         private readonly IWebServerAdministrationProvider webServerProvider;
+        private readonly IStandaloneProvider standaloneProvider;
         private readonly IVarzProvider varzProvider;
 
         private readonly Hello helloMessage;
@@ -39,7 +40,6 @@
         private bool shutting_down = false;
 
         private ushort maxMemoryMB;
-        private ushort reservedMemoryMB;
 
         private VcapComponentDiscover discoverMessage;
 
@@ -49,16 +49,18 @@
             IConfigManager configManager,
             IDropletManager dropletManager,
             IWebServerAdministrationProvider webServerAdministrationProvider,
+            IStandaloneProvider standaloneProvider,
             IVarzProvider varzProvider)
         {
-            this.log               = log;
-            this.config            = config;
-            this.messagingProvider = messagingProvider;
-            this.filesManager      = filesManager;
-            this.configManager     = configManager;
-            this.dropletManager    = dropletManager;
-            this.webServerProvider = webServerAdministrationProvider;
-            this.varzProvider      = varzProvider;
+            this.log                = log;
+            this.config             = config;
+            this.messagingProvider  = messagingProvider;
+            this.filesManager       = filesManager;
+            this.configManager      = configManager;
+            this.dropletManager     = dropletManager;
+            this.webServerProvider  = webServerAdministrationProvider;
+            this.standaloneProvider = standaloneProvider;
+            this.varzProvider       = varzProvider;
 
             helloMessage = new Hello(messagingProvider.UniqueIdentifier, config.LocalIPAddress, config.FilesServicePort);
 
@@ -191,7 +193,7 @@
             Droplet droplet = Message.FromJson<Droplet>(message);
             if (false == droplet.FrameworkSupported)
             {
-                log.Info(Resources.Agent_NonAspDotNet_Message);
+                log.Info(Resources.Agent_UnsupportedFramework_Fmt, droplet.Framework);
                 return;
             }
 
@@ -199,35 +201,39 @@
 
             if (filesManager.Stage(droplet, instance))
             {
-                WebServerAdministrationBinding binding = webServerProvider.InstallWebApp(
-                    filesManager.GetApplicationPathFor(instance), instance.Staged, instance.ManagedRuntimeVersion);
-                if (null == binding)
+                if (droplet.IsAspNet)
                 {
-                    log.Error(Resources.Agent_ProcessDeaStartNoBindingAvailable, instance.Staged);
-                    filesManager.CleanupInstanceDirectory(instance, true);
+                    WebServerAdministrationBinding binding = webServerProvider.InstallWebApp(
+                        filesManager.GetApplicationPathFor(instance), instance.Staged);
+                    if (null == binding)
+                    {
+                        log.Error(Resources.Agent_ProcessDeaStartNoBindingAvailable, instance.Staged);
+                        filesManager.CleanupInstanceDirectory(instance, true);
+                    }
+                    else
+                    {
+                        instance.Host = binding.Host;
+                        instance.Port = binding.Port;
+                    }
                 }
                 else
                 {
-                    instance.Host = binding.Host;
-                    instance.Port = binding.Port;
+                    standaloneProvider.InstallApp(filesManager.GetApplicationPathFor(instance), instance.Staged);
+                }
 
-                    configManager.BindServices(droplet, instance);
-                    configManager.SetupEnvironment(droplet, instance);
+                configManager.BindServices(droplet, instance);
+                configManager.SetupEnvironment(droplet, instance);
+                instance.OnDeaStart();
 
-                    instance.OnDeaStart();
+                if (false == shutting_down)
+                {
+                    SendSingleHeartbeat(new Heartbeat(instance));
 
-                    if (false == shutting_down)
-                    {
-                        SendSingleHeartbeat(new Heartbeat(instance));
+                    RegisterWithRouter(instance, instance.Uris);
 
-                        RegisterWithRouter(instance, instance.Uris);
+                    dropletManager.Add(droplet.ID, instance);
 
-                        dropletManager.Add(droplet.ID, instance);
-
-                        TakeSnapshot();
-
-                        reservedMemoryMB += instance.MemQuotaMB;
-                    }
+                    TakeSnapshot();
                 }
             }
         }
@@ -272,10 +278,6 @@
 
         private void ProcessDeaDiscover(string message, string reply)
         {
-            const ushort TaintMsPerApp = 10;
-            const ushort TaintMsForMem = 100;
-            const ushort TaintMaxDelay = 250;
-
             if (shutting_down)
             {
                 return;
@@ -289,12 +291,9 @@
                 uint delay = 0;
                 dropletManager.ForAllInstances(discover.DropletID, (instance) =>
                     {
-                        delay += TaintMsPerApp;
+                        delay += 10; // NB: 10 milliseconds delay per app
                     });
-
-                float memPercent = reservedMemoryMB / ((float)maxMemoryMB);
-                delay += (ushort)(memPercent * TaintMsForMem);
-                messagingProvider.Publish(reply, helloMessage, Math.Min(delay, TaintMaxDelay));
+                messagingProvider.Publish(reply, helloMessage, Math.Min(delay, 250));
             }
             else
             {
@@ -321,7 +320,6 @@
                     {
                         instance.OnDeaStop();
                         StopDroplet(instance);
-                        reservedMemoryMB -= instance.MemQuotaMB;
                     }
                 });
         }
@@ -337,7 +335,7 @@
 
             SendExitedMessage(instance);
 
-            webServerProvider.UninstallWebApp(instance.Staged);
+            webServerProvider.UninstallWebApp(instance);
 
             dropletManager.InstanceStopped(instance);
 
@@ -528,8 +526,9 @@
 
             dropletManager.ForAllInstances((instance) =>
             {
-                instance.UpdateState(GetApplicationState(instance.Staged));
-                instance.StateTimestamp = Utility.GetEpochTimestamp();
+                // TODO UpdateState should be an abstract method on base "DropletInstance" class
+                // that knows how to update state based on web app vs. standalone
+                instance.UpdateState(GetApplicationState(instance));
                 heartbeats.Add(new Heartbeat(instance));
             });
 
@@ -547,14 +546,23 @@
             {
                 return;
             }
-            ushort availableMemoryMB = (ushort)(maxMemoryMB - reservedMemoryMB);
-            var message = new Advertise(messagingProvider.UniqueIdentifier, availableMemoryMB, true);
+            var message = new Advertise(messagingProvider.UniqueIdentifier, 4096, 0, true); // TODO mem
             messagingProvider.Publish(message);
         }
 
-        private string GetApplicationState(string name)
+        private string GetApplicationState(Instance instance)
         {
-            ApplicationInstanceStatus status = webServerProvider.GetApplicationStatus(name);
+            ApplicationInstanceStatus status = ApplicationInstanceStatus.Unknown;
+
+            if (instance.IsAspNet)
+            {
+                status = webServerProvider.GetApplicationStatus(instance);
+            }
+            else
+            {
+                status = standaloneProvider.GetApplicationStatus(instance);
+            }
+
             string rv;
             switch (status)
             {
@@ -580,6 +588,7 @@
                     rv = VcapStates.CRASHED;
                     break;
             }
+            
             return rv;
         }
 
@@ -597,8 +606,6 @@
                 dropletManager.FromSnapshot(snapshot);
                 SendHeartbeat();
                 TakeSnapshot();
-                reservedMemoryMB = 0;
-                dropletManager.ForAllInstances((instance) => reservedMemoryMB += instance.MemQuotaMB);
             }
         }
 

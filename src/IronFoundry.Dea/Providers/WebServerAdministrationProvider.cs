@@ -10,6 +10,7 @@
     using IronFoundry.Dea.Logging;
     using IronFoundry.Dea.Properties;
     using IronFoundry.Dea.Services;
+    using IronFoundry.Dea.Types;
 
     public class WebServerAdministrationProvider : IWebServerAdministrationProvider
     {
@@ -71,7 +72,8 @@
                         {
                             return null;
                         }
-
+ 
+                        TODO managedRuntimeVersion
                         cmd = String.Format(
                             "set apppool {0} /autoStart:true /managedRuntimeVersion:v{1}.0 /managedPipelineMode:Integrated /processModel.loadUserProfile:true",
                             applicationInstanceName, managedRuntimeVersion);
@@ -132,25 +134,25 @@
             return rv;
         }
 
-        public void UninstallWebApp(string applicationInstanceName)
+        public void UninstallWebApp(Instance applicationInstance)
         {
             try
             {
-                string cmd = String.Format("stop apppool {0}", applicationInstanceName);
+                string cmd = String.Format("stop apppool {0}", applicationInstance.Staged);
                 ExecAppcmd(cmd, 5, twoSeconds);
 
                 ushort i = 0;
                 ApplicationInstanceStatus status = ApplicationInstanceStatus.Unknown;
                 while (ApplicationInstanceStatus.Stopped != status && i < 5)
                 {
-                    status = GetApplicationStatus(applicationInstanceName);
+                    status = GetApplicationStatus(applicationInstance);
                     ++i;
                 }
 
-                cmd = String.Format("delete apppool {0}", applicationInstanceName);
+                cmd = String.Format("delete apppool {0}", applicationInstance.Staged);
                 ExecAppcmd(cmd, 5, twoSeconds);
 
-                cmd = String.Format("delete site {0}", applicationInstanceName);
+                cmd = String.Format("delete site {0}", applicationInstance.Staged);
                 ExecAppcmd(cmd, 5, twoSeconds);
 
             }
@@ -161,7 +163,7 @@
 
             try
             {
-                firewallService.Close(applicationInstanceName);
+                firewallService.Close(applicationInstance.Staged);
             }
             catch (Exception ex)
             {
@@ -169,8 +171,10 @@
             }
         }
 
-        public ApplicationInstanceStatus GetApplicationStatus(string applicationInstanceName)
+        public ApplicationInstanceStatus GetApplicationStatus(Instance applicationInstance)
         {
+            string applicationInstanceName = applicationInstance.Staged;
+
             ApplicationInstanceStatus rv = ApplicationInstanceStatus.Unknown;
             try
             {

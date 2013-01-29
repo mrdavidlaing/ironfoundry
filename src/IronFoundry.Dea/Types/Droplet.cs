@@ -51,5 +51,11 @@
         {
             get { return Constants.IsSupportedFramework(Framework); }
         }
+
+        [JsonIgnore]
+        public bool IsAspNet
+        {
+            get { return Constants.IsAspNet(Framework); }
+        }
     }
 }
